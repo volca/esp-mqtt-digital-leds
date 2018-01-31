@@ -15,7 +15,7 @@
         - Next, download the ESP8266 dependancies by going to Tools -> Board -> Board Manager and searching for ESP8266 and installing it.
   
   - You will also need to download the follow libraries by going to Sketch -> Include Libraries -> Manage Libraries
-      - FastLED 
+      - NeoPixelBus 
       - PubSubClient
       - ArduinoJSON
 */
@@ -23,7 +23,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include "FastLED.h"
+#include <NeoPixelBus.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -63,14 +63,8 @@ String oldeffectString = "solid";
 const int BUFFER_SIZE = JSON_OBJECT_SIZE(10);
 #define MQTT_MAX_PACKET_SIZE 512
 
-
-
-/*********************************** FastLED Defintions ********************************/
-#define NUM_LEDS    186
-#define DATA_PIN    5
-//#define CLOCK_PIN 5
-#define CHIPSET     WS2811
-#define COLOR_ORDER BRG
+/*********************************** LED Defintions ********************************/
+#define NUM_LEDS    128
 
 byte realRed = 0;
 byte realGreen = 0;
@@ -170,6 +164,8 @@ bool gReverseDirection = false;
 uint8_t gHue = 0;
 
 
+NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 struct CRGB leds[NUM_LEDS];
@@ -179,7 +175,8 @@ struct CRGB leds[NUM_LEDS];
 /********************************** START SETUP*****************************************/
 void setup() {
   Serial.begin(115200);
-  FastLED.addLeds<CHIPSET, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  strip.Begin();
+  strip.Show();
 
   setupStripedPalette( CRGB::Red, CRGB::Red, CRGB::White, CRGB::White); //for CANDY CANE
   gPal = HeatColors_p; //for FIRE
@@ -470,7 +467,7 @@ void setColor(int inR, int inG, int inB) {
     leds[i].blue  = inB;
   }
 
-  FastLED.show();
+  strip.Show();
 
   Serial.println("Setting LEDs:");
   Serial.print("r: ");
@@ -631,8 +628,7 @@ void loop() {
   if (effectString == "lightning") {
     twinklecounter = twinklecounter + 1;                     //Resets strip if previous animation was running
     if (twinklecounter < 2) {
-      FastLED.clear();
-      FastLED.show();
+      strip.Show();
     }
     ledstart = random8(NUM_LEDS);           // Determine starting location of flash
     ledlen = random8(NUM_LEDS - ledstart);  // Determine length of flash (not to go beyond NUM_LEDS-1)
@@ -701,7 +697,6 @@ void loop() {
 
   //EFFECT RAINBOW
   if (effectString == "rainbow") {
-    // FastLED's built-in rainbow generator
     static uint8_t starthue = 0;    thishue++;
     fill_rainbow(leds, NUM_LEDS, thishue, deltahue);
     if (transitionTime == 0 or transitionTime == NULL) {
@@ -712,7 +707,7 @@ void loop() {
 
 
   //EFFECT RAINBOW WITH GLITTER
-  if (effectString == "rainbow with glitter") {               // FastLED's built-in rainbow generator with Glitter
+  if (effectString == "rainbow with glitter") {
     static uint8_t starthue = 0;
     thishue++;
     fill_rainbow(leds, NUM_LEDS, thishue, deltahue);
@@ -740,8 +735,8 @@ void loop() {
   if (effectString == "twinkle") {
     twinklecounter = twinklecounter + 1;
     if (twinklecounter < 2) {                               //Resets strip if previous animation was running
-      FastLED.clear();
-      FastLED.show();
+        strip.Show();
+
     }
     const CRGB lightcolor(8, 7, 1);
     for ( int i = 0; i < NUM_LEDS; i++) {
@@ -1039,16 +1034,25 @@ void addGlitterColor( fract8 chanceOfGlitter, int red, int green, int blue)
 
 /********************************** START SHOW LEDS ***********************************************/
 void showleds() {
-
-  delay(1);
-
+  static uint32_t fireTimer;
   if (stateOn) {
-    FastLED.setBrightness(brightness);  //EXECUTE EFFECT COLOR
-    FastLED.show();
-    if (transitionTime > 0 && transitionTime < 130) {  //Sets animation speed based on receieved value
-      FastLED.delay(1000 / transitionTime);
-      //delay(10*transitionTime);
-    }
+      strip.SetBrightness(brightness);  //EXECUTE EFFECT COLOR
+      strip.show();
+
+      if (transitionTime > 0 && transitionTime < 130) {  //Sets animation speed based on receieved value
+          if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
+            fireTimer = millis();
+
+            RgbColor pixel;
+            for (int i = 0; i < NUM_LEDS; i++) {
+              /*
+              pixel = RgbColor(leds[i].r, leds[i].g, leds[i].b);
+              strip.SetPixelColor(i, pixel);
+              */
+            }
+            strip.Show();
+          }
+      }
   }
   else if (startFade) {
     setColor(0, 0, 0);
