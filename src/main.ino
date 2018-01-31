@@ -23,7 +23,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <NeoPixelBus.h>
+#include <NeoPixelBrightnessBus.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -65,6 +65,7 @@ const int BUFFER_SIZE = JSON_OBJECT_SIZE(10);
 
 /*********************************** LED Defintions ********************************/
 #define NUM_LEDS    128
+#define FRAMES_PER_SECOND 30
 
 byte realRed = 0;
 byte realGreen = 0;
@@ -162,7 +163,6 @@ bool gReverseDirection = false;
 
 //BPM
 uint8_t gHue = 0;
-
 
 NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
 
@@ -1036,23 +1036,24 @@ void addGlitterColor( fract8 chanceOfGlitter, int red, int green, int blue)
 void showleds() {
   static uint32_t fireTimer;
   if (stateOn) {
+      /*
       strip.SetBrightness(brightness);  //EXECUTE EFFECT COLOR
       strip.show();
 
       if (transitionTime > 0 && transitionTime < 130) {  //Sets animation speed based on receieved value
+          //if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
           if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
             fireTimer = millis();
 
             RgbColor pixel;
             for (int i = 0; i < NUM_LEDS; i++) {
-              /*
-              pixel = RgbColor(leds[i].r, leds[i].g, leds[i].b);
-              strip.SetPixelColor(i, pixel);
-              */
+              //pixel = RgbColor(leds[i].r, leds[i].g, leds[i].b);
+              //strip.SetPixelColor(i, pixel);
             }
             strip.Show();
           }
       }
+      */
   }
   else if (startFade) {
     setColor(0, 0, 0);
