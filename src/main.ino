@@ -15,7 +15,7 @@
         - Next, download the ESP8266 dependancies by going to Tools -> Board -> Board Manager and searching for ESP8266 and installing it.
   
   - You will also need to download the follow libraries by going to Sketch -> Include Libraries -> Manage Libraries
-      - NeoPixelBus 
+      - FastLED 
       - PubSubClient
       - ArduinoJSON
 */
@@ -23,11 +23,13 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <NeoPixelBrightnessBus.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include "app_config.h"
+
+#define FASTLED_ESP8266_DMA
+#include "FastLED.h"
 
 /************ WIFI and MQTT Information (CHANGE THESE FOR YOUR SETUP) ******************/
 const char* mqtt_server = "your.MQTT.server.ip";
@@ -35,6 +37,7 @@ const char* mqtt_username = "yourMQTTusername";
 const char* mqtt_password = "yourMQTTpassword";
 const int mqtt_port = 1883;
 
+#define MILLION 1000000
 
 
 /**************************** FOR OTA **************************************************/
@@ -60,9 +63,14 @@ String oldeffectString = "solid";
 const int BUFFER_SIZE = JSON_OBJECT_SIZE(10);
 #define MQTT_MAX_PACKET_SIZE 512
 
-/*********************************** LED Defintions ********************************/
-#define NUM_LEDS    128
-#define FRAMES_PER_SECOND 30
+
+
+/*********************************** FastLED Defintions ********************************/
+#define NUM_LEDS    186
+#define DATA_PIN    5
+//#define CLOCK_PIN 5
+#define CHIPSET     WS2812
+#define COLOR_ORDER BRG
 
 byte realRed = 0;
 byte realGreen = 0;
@@ -103,10 +111,16 @@ byte flashBrightness = brightness;
 uint8_t thishue = 0;                                          // Starting hue value.
 uint8_t deltahue = 10;
 
+//CANDYCANE
+CRGBPalette16 currentPalettestriped; //for Candy Cane
+CRGBPalette16 gPal; //for fire
+
 //NOISE
 static uint16_t dist;         // A random number for our noise generator.
 uint16_t scale = 30;          // Wouldn't recommend changing this on the fly, or the animation will be really blocky.
 uint8_t maxChanges = 48;      // Value for blending between palettes.
+CRGBPalette16 targetPalette(OceanColors_p);
+CRGBPalette16 currentPalette(CRGB::Black);
 
 //TWINKLE
 #define DENSITY     80
@@ -155,20 +169,20 @@ bool gReverseDirection = false;
 //BPM
 uint8_t gHue = 0;
 
-NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-struct RgbColor leds[NUM_LEDS];
+struct CRGB leds[NUM_LEDS];
+
+
 
 /********************************** START SETUP*****************************************/
 void setup() {
   Serial.begin(115200);
-  strip.Begin();
-  strip.Show();
+  FastLED.addLeds<CHIPSET, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
 
-  //setupStripedPalette( CRGB::Red, CRGB::Red, CRGB::White, CRGB::White); //for CANDY CANE
-  //gPal = HeatColors_p; //for FIRE
+  setupStripedPalette( CRGB::Red, CRGB::Red, CRGB::White, CRGB::White); //for CANDY CANE
+  gPal = HeatColors_p; //for FIRE
 
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
@@ -180,7 +194,7 @@ void setup() {
   ArduinoOTA.setHostname(SENSORNAME);
 
   // No authentication by default
-  //ArduinoOTA.setPassword((const char *)OTApassword);
+  ArduinoOTA.setPassword((const char *)OTApassword);
 
   ArduinoOTA.onStart([]() {
     Serial.println("Starting");
@@ -371,7 +385,7 @@ bool processJson(char* message) {
     if (root.containsKey("color_temp")) {
       //temp comes in as mireds, need to convert to kelvin then to RGB
       int color_temp = root["color_temp"];
-      unsigned int kelvin  = 1000000 / color_temp;
+      unsigned int kelvin  = MILLION / color_temp;
       
       temp2rgb(kelvin);
       
@@ -451,12 +465,12 @@ void reconnect() {
 /********************************** START Set Color*****************************************/
 void setColor(int inR, int inG, int inB) {
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i].R   = inR;
-    leds[i].G   = inG;
-    leds[i].B   = inB;
+    leds[i].red   = inR;
+    leds[i].green = inG;
+    leds[i].blue  = inB;
   }
 
-  strip.Show();
+  FastLED.show();
 
   Serial.println("Setting LEDs:");
   Serial.print("r: ");
@@ -483,10 +497,13 @@ void loop() {
     return;
   }
 
+
+
   client.loop();
+
   ArduinoOTA.handle();
 
-  /*
+
   //EFFECT BPM
   if (effectString == "bpm") {
     uint8_t BeatsPerMinute = 62;
@@ -505,9 +522,9 @@ void loop() {
   //EFFECT Candy Cane
   if (effectString == "candy cane") {
     static uint8_t startIndex = 0;
-    startIndex = startIndex + 1; // higher = faster motion 
+    startIndex = startIndex + 1; /* higher = faster motion */
     fill_palette( leds, NUM_LEDS,
-                  startIndex, 16, // higher = narrower stripes 
+                  startIndex, 16, /* higher = narrower stripes */
                   currentPalettestriped, 255, LINEARBLEND);
     if (transitionTime == 0 or transitionTime == NULL) {
       transitionTime = 0;
@@ -614,7 +631,8 @@ void loop() {
   if (effectString == "lightning") {
     twinklecounter = twinklecounter + 1;                     //Resets strip if previous animation was running
     if (twinklecounter < 2) {
-      strip.Show();
+      FastLED.clear();
+      FastLED.show();
     }
     ledstart = random8(NUM_LEDS);           // Determine starting location of flash
     ledlen = random8(NUM_LEDS - ledstart);  // Determine length of flash (not to go beyond NUM_LEDS-1)
@@ -683,6 +701,7 @@ void loop() {
 
   //EFFECT RAINBOW
   if (effectString == "rainbow") {
+    // FastLED's built-in rainbow generator
     static uint8_t starthue = 0;    thishue++;
     fill_rainbow(leds, NUM_LEDS, thishue, deltahue);
     if (transitionTime == 0 or transitionTime == NULL) {
@@ -693,7 +712,7 @@ void loop() {
 
 
   //EFFECT RAINBOW WITH GLITTER
-  if (effectString == "rainbow with glitter") {
+  if (effectString == "rainbow with glitter") {               // FastLED's built-in rainbow generator with Glitter
     static uint8_t starthue = 0;
     thishue++;
     fill_rainbow(leds, NUM_LEDS, thishue, deltahue);
@@ -721,8 +740,8 @@ void loop() {
   if (effectString == "twinkle") {
     twinklecounter = twinklecounter + 1;
     if (twinklecounter < 2) {                               //Resets strip if previous animation was running
-        strip.Show();
-
+      FastLED.clear();
+      FastLED.show();
     }
     const CRGB lightcolor(8, 7, 1);
     for ( int i = 0; i < NUM_LEDS; i++) {
@@ -875,7 +894,6 @@ void loop() {
       }
     }
   }
-  */
 }
 
 
@@ -941,21 +959,19 @@ int calculateVal(int step, int val, int i) {
 
 
 /**************************** START STRIPLED PALETTE *****************************************/
-/*
 void setupStripedPalette( CRGB A, CRGB AB, CRGB B, CRGB BA) {
   currentPalettestriped = CRGBPalette16(
                             A, A, A, A, A, A, A, A, B, B, B, B, B, B, B, B
                             //    A, A, A, A, A, A, A, A, B, B, B, B, B, B, B, B
                           );
 }
-*/
 
 
 
 /********************************** START FADE************************************************/
 void fadeall() {
   for (int i = 0; i < NUM_LEDS; i++) {
-    //leds[i].nscale8(250);  //for CYCLon
+    leds[i].nscale8(250);  //for CYCLon
   }
 }
 
@@ -965,7 +981,6 @@ void fadeall() {
 void Fire2012WithPalette()
 {
   // Array of temperature readings at each simulation cell
-  /*
   static byte heat[NUM_LEDS];
 
   // Step 1.  Cool down every cell a little
@@ -998,55 +1013,42 @@ void Fire2012WithPalette()
     }
     leds[pixelnumber] = color;
   }
-  */
 }
 
 
 
 /********************************** START ADD GLITTER *********************************************/
-/*
 void addGlitter( fract8 chanceOfGlitter)
 {
   if ( random8() < chanceOfGlitter) {
     leds[ random16(NUM_LEDS) ] += CRGB::White;
   }
 }
-*/
+
 
 
 /********************************** START ADD GLITTER COLOR ****************************************/
-/*
 void addGlitterColor( fract8 chanceOfGlitter, int red, int green, int blue)
 {
   if ( random8() < chanceOfGlitter) {
     leds[ random16(NUM_LEDS) ] += CRGB(red, green, blue);
   }
 }
-*/
+
 
 
 /********************************** START SHOW LEDS ***********************************************/
 void showleds() {
-  static uint32_t fireTimer;
+
+  delay(1);
+
   if (stateOn) {
-      strip.SetBrightness(brightness);  //EXECUTE EFFECT COLOR
-      strip.Show();
-
-      /*
-      if (transitionTime > 0 && transitionTime < 130) {  //Sets animation speed based on receieved value
-          //if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
-          if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
-            fireTimer = millis();
-
-            RgbColor pixel;
-            for (int i = 0; i < NUM_LEDS; i++) {
-              //pixel = RgbColor(leds[i].r, leds[i].g, leds[i].b);
-              //strip.SetPixelColor(i, pixel);
-            }
-            strip.Show();
-          }
-      }
-      */
+    FastLED.setBrightness(brightness);  //EXECUTE EFFECT COLOR
+    FastLED.show();
+    if (transitionTime > 0 && transitionTime < 130) {  //Sets animation speed based on receieved value
+      FastLED.delay(1000 / transitionTime);
+      //delay(10*transitionTime);
+    }
   }
   else if (startFade) {
     setColor(0, 0, 0);
