@@ -23,16 +23,13 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <NeoPixelBrightnessBus.h>
+#include <NeoPixelBus.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-
-
+#include "app_config.h"
 
 /************ WIFI and MQTT Information (CHANGE THESE FOR YOUR SETUP) ******************/
-const char* ssid = "YourSSID"; //type your WIFI information inside the quotes
-const char* password = "YourWIFIpassword";
 const char* mqtt_server = "your.MQTT.server.ip";
 const char* mqtt_username = "yourMQTTusername";
 const char* mqtt_password = "yourMQTTpassword";
@@ -106,16 +103,10 @@ byte flashBrightness = brightness;
 uint8_t thishue = 0;                                          // Starting hue value.
 uint8_t deltahue = 10;
 
-//CANDYCANE
-CRGBPalette16 currentPalettestriped; //for Candy Cane
-CRGBPalette16 gPal; //for fire
-
 //NOISE
 static uint16_t dist;         // A random number for our noise generator.
 uint16_t scale = 30;          // Wouldn't recommend changing this on the fly, or the animation will be really blocky.
 uint8_t maxChanges = 48;      // Value for blending between palettes.
-CRGBPalette16 targetPalette(OceanColors_p);
-CRGBPalette16 currentPalette(CRGB::Black);
 
 //TWINKLE
 #define DENSITY     80
@@ -164,13 +155,11 @@ bool gReverseDirection = false;
 //BPM
 uint8_t gHue = 0;
 
-NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-struct CRGB leds[NUM_LEDS];
-
-
+struct RgbColor leds[NUM_LEDS];
 
 /********************************** START SETUP*****************************************/
 void setup() {
@@ -178,8 +167,8 @@ void setup() {
   strip.Begin();
   strip.Show();
 
-  setupStripedPalette( CRGB::Red, CRGB::Red, CRGB::White, CRGB::White); //for CANDY CANE
-  gPal = HeatColors_p; //for FIRE
+  //setupStripedPalette( CRGB::Red, CRGB::Red, CRGB::White, CRGB::White); //for CANDY CANE
+  //gPal = HeatColors_p; //for FIRE
 
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
@@ -191,7 +180,7 @@ void setup() {
   ArduinoOTA.setHostname(SENSORNAME);
 
   // No authentication by default
-  ArduinoOTA.setPassword((const char *)OTApassword);
+  //ArduinoOTA.setPassword((const char *)OTApassword);
 
   ArduinoOTA.onStart([]() {
     Serial.println("Starting");
@@ -462,9 +451,9 @@ void reconnect() {
 /********************************** START Set Color*****************************************/
 void setColor(int inR, int inG, int inB) {
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i].red   = inR;
-    leds[i].green = inG;
-    leds[i].blue  = inB;
+    leds[i].R   = inR;
+    leds[i].G   = inG;
+    leds[i].B   = inB;
   }
 
   strip.Show();
@@ -494,13 +483,10 @@ void loop() {
     return;
   }
 
-
-
   client.loop();
-
   ArduinoOTA.handle();
 
-
+  /*
   //EFFECT BPM
   if (effectString == "bpm") {
     uint8_t BeatsPerMinute = 62;
@@ -519,9 +505,9 @@ void loop() {
   //EFFECT Candy Cane
   if (effectString == "candy cane") {
     static uint8_t startIndex = 0;
-    startIndex = startIndex + 1; /* higher = faster motion */
+    startIndex = startIndex + 1; // higher = faster motion 
     fill_palette( leds, NUM_LEDS,
-                  startIndex, 16, /* higher = narrower stripes */
+                  startIndex, 16, // higher = narrower stripes 
                   currentPalettestriped, 255, LINEARBLEND);
     if (transitionTime == 0 or transitionTime == NULL) {
       transitionTime = 0;
@@ -889,6 +875,7 @@ void loop() {
       }
     }
   }
+  */
 }
 
 
@@ -954,19 +941,21 @@ int calculateVal(int step, int val, int i) {
 
 
 /**************************** START STRIPLED PALETTE *****************************************/
+/*
 void setupStripedPalette( CRGB A, CRGB AB, CRGB B, CRGB BA) {
   currentPalettestriped = CRGBPalette16(
                             A, A, A, A, A, A, A, A, B, B, B, B, B, B, B, B
                             //    A, A, A, A, A, A, A, A, B, B, B, B, B, B, B, B
                           );
 }
+*/
 
 
 
 /********************************** START FADE************************************************/
 void fadeall() {
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i].nscale8(250);  //for CYCLon
+    //leds[i].nscale8(250);  //for CYCLon
   }
 }
 
@@ -976,6 +965,7 @@ void fadeall() {
 void Fire2012WithPalette()
 {
   // Array of temperature readings at each simulation cell
+  /*
   static byte heat[NUM_LEDS];
 
   // Step 1.  Cool down every cell a little
@@ -1008,28 +998,31 @@ void Fire2012WithPalette()
     }
     leds[pixelnumber] = color;
   }
+  */
 }
 
 
 
 /********************************** START ADD GLITTER *********************************************/
+/*
 void addGlitter( fract8 chanceOfGlitter)
 {
   if ( random8() < chanceOfGlitter) {
     leds[ random16(NUM_LEDS) ] += CRGB::White;
   }
 }
-
+*/
 
 
 /********************************** START ADD GLITTER COLOR ****************************************/
+/*
 void addGlitterColor( fract8 chanceOfGlitter, int red, int green, int blue)
 {
   if ( random8() < chanceOfGlitter) {
     leds[ random16(NUM_LEDS) ] += CRGB(red, green, blue);
   }
 }
-
+*/
 
 
 /********************************** START SHOW LEDS ***********************************************/
