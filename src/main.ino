@@ -23,7 +23,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <NeoPixelBus.h>
+#include <NeoPixelBrightnessBus.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -155,7 +155,7 @@ bool gReverseDirection = false;
 //BPM
 uint8_t gHue = 0;
 
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
+NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -1029,10 +1029,10 @@ void addGlitterColor( fract8 chanceOfGlitter, int red, int green, int blue)
 void showleds() {
   static uint32_t fireTimer;
   if (stateOn) {
-      /*
       strip.SetBrightness(brightness);  //EXECUTE EFFECT COLOR
-      strip.show();
+      strip.Show();
 
+      /*
       if (transitionTime > 0 && transitionTime < 130) {  //Sets animation speed based on receieved value
           //if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
           if (millis() > fireTimer + 1000 / FRAMES_PER_SECOND) {
