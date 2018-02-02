@@ -31,12 +31,6 @@
 #define FASTLED_ESP8266_DMA
 #include "FastLED.h"
 
-/************ WIFI and MQTT Information (CHANGE THESE FOR YOUR SETUP) ******************/
-const char* mqtt_server = "your.MQTT.server.ip";
-const char* mqtt_username = "yourMQTTusername";
-const char* mqtt_password = "yourMQTTpassword";
-const int mqtt_port = 1883;
-
 #define MILLION 1000000
 
 
